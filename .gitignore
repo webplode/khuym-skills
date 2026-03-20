@@ -1,0 +1,8 @@
+node_modules/
+coverage/
+skills/instruction-distiller
+tests
+scripts
+package*
+tsconfig.json
+vitest.config.ts
