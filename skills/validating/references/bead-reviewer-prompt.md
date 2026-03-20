@@ -162,7 +162,7 @@ The bead makes a choice where alternative approaches are plausible. Without a no
 **Do not flag:**
 - Simple, brief beads — brevity is a virtue when the scope is truly narrow
 - Architectural decisions you disagree with — that's planning's domain, not yours
-- Beads that reference other beads by ID — this is correct pattern (the executor reads its assigned beads)
+- Beads that reference other beads by ID — this is correct pattern (the executor reads the live graph and then the bead)
 - Missing features that weren't in the bead's scope — you don't know the full plan
 - Style preferences (naming conventions, formatting) — not your concern
 

@@ -252,7 +252,7 @@ Convert approach.md into executable beads using `br create`. Never write pseudo-
 Every bead MUST include:
 - **Clear title** — action-oriented, e.g., "Implement StripeWebhookHandler" not "Webhook"
 - **Description** — what, why, how; enough that a fresh agent can implement without asking questions
-- **File scope** — which files this bead touches (for track assignment)
+- **File scope** — which files this bead touches (for reservation/conflict planning)
 - **Dependencies** — explicit bead IDs it depends on (use `--deps`)
 - **Verification criteria** — how the agent knows it's done
 
@@ -374,6 +374,6 @@ HARD-GATE: Do not hand off to swarming directly. Validating is the gate that ver
 - **Skipping Phase 0** — You will re-discover learnings the team already has. Always read critical-patterns.md.
 - **Ignoring CONTEXT.md** — You produce a plan the user didn't ask for. Locked decisions are locked.
 - **Writing pseudo-beads in markdown** — Beads that aren't created with `br create` don't exist in the graph. Go to the CLI.
-- **Beads with no file scope** — The swarming skill cannot assign tracks without file scopes.
+- **Beads with no file scope** — Workers and validators need file scopes to reason about reservations and conflicts.
 - **HIGH-risk items with no risk flag** — Validating needs to know which items require spikes. Mark them clearly in approach.md.
 - **Missing dependencies between beads** — The bv dependency graph breaks. Use `br dep add` explicitly.

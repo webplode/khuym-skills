@@ -44,7 +44,8 @@ Collect all artifacts from the completed feature. Read:
 history/<feature>/CONTEXT.md          ← locked decisions (what we committed to)
 history/<feature>/discovery.md        ← research findings (what we learned before coding)
 history/<feature>/approach.md         ← synthesis + risk map (how we planned to do it)
-history/<feature>/execution-plan.md   ← tracks + waves (how we decomposed it)
+.khuym/STATE.md or HANDOFF artifacts  ← runtime coordination state, if retained
+.beads/ or `br show` output           ← the executable work graph we actually ran
 ```
 
 Also read any review output written by the `reviewing` skill, including P1/P2/P3 findings.

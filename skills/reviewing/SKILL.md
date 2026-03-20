@@ -17,7 +17,7 @@ Research confirms this is not optional: removing the verification agent degrades
 
 ## When to Invoke
 
-- After `swarming` reports "All tracks complete"
+- After `swarming` reports "All beads closed"
 - Manually: when spot-checking any branch or set of changes
 - Flags: `--serial` (always serial), `--skip-uat` (auto mode only, skips Phase 3)
 
@@ -25,8 +25,9 @@ Research confirms this is not optional: removing the verification agent degrades
 
 Read before starting:
 - `history/<feature>/CONTEXT.md` — locked decisions (D1, D2...) and testable deliverables
-- `history/<feature>/execution-plan.md` — tracks, beads, file scopes
+- `history/<feature>/approach.md` — planned approach and risk map
 - `.khuym/STATE.md` — current epic state
+- relevant bead files / `br show` output for the epic
 
 ## Phase 1: Automated Review (5 Specialist Agents)
 
@@ -57,7 +58,7 @@ Dispatch agents 1–4 first (parallel or serial per rules above). Agent 5 **alwa
 Each agent receives **only**:
 1. The git diff (or worktree diff): `git diff <base>..<head>`
 2. `history/<feature>/CONTEXT.md`
-3. `history/<feature>/execution-plan.md`
+3. `history/<feature>/approach.md`
 
 Do **not** pass session history, implementation notes, or agent communication logs. Reviewer objectivity depends on seeing only the work product, not the implementer's thought process ([Superpowers code-reviewer pattern](https://raw.githubusercontent.com/obra/superpowers/main/skills/requesting-code-review/SKILL.md)).
 
@@ -102,9 +103,9 @@ See `references/finding-template.md` for the required format.
 
 ## Phase 2: 3-Level Artifact Verification
 
-Goal-backward check on every artifact named in `CONTEXT.md` and `execution-plan.md`. Task completion ≠ goal achievement — a file existing is not evidence the feature works.
+Goal-backward check on every artifact named in `CONTEXT.md`, `approach.md`, and the bead set. Task completion ≠ goal achievement — a file existing is not evidence the feature works.
 
-Run this as a subagent with isolated context (diff + execution-plan.md only).
+Run this as a subagent with isolated context (diff + approach.md only).
 
 ### The 3 Levels
 

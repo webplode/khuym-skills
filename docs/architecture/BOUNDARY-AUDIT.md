@@ -14,7 +14,7 @@
 
 **But GSD says:** Research is a separate phase between Discuss and Plan. GSD has 4 parallel researchers (stack, features, architecture, pitfalls) that run AFTER discuss but BEFORE the planner writes the plan.
 
-**The mismatch:** v2 crams both research AND plan creation into `planning`. This makes planning do too much — it's really "research + synthesize + decompose + track-plan" all in one skill. GSD deliberately separates research from planning because research informs the plan; they're sequential, not the same activity.
+**The mismatch:** v2 crams both research AND plan creation into `planning`. This makes planning do too much — it's really "research + synthesize + decompose" all in one skill. GSD deliberately separates research from planning because research informs the plan; they're sequential, not the same activity.
 
 **Fix:** planning should stay as-is (research + synthesis + beads is a natural unit — GSD separates them as phases within one command `/gsd:plan-phase N`, not as separate commands). The issue is actually that `exploring` claims "Does NOT research" too aggressively. Exploring does light codebase scouting (grep for patterns). That's fine. The real boundary: exploring = human-facing decisions, planning = technical research + decomposition.
 
@@ -23,7 +23,7 @@
 **v2 says:** planning Phase 4 creates beads via `br create`
 **v2 also says:** validating Phase 3 runs `bv --robot-suggest`, `bv --robot-insights`, `bv --robot-priority`
 
-**Update (2026-03-20):** planning Phase 5 (Track Planning) removed. planning now only creates draft beads (Phase 4). Graph validation lives entirely in validating Phase 3. Track computation moved to swarming Phase 1.
+**Update (2026-03-20):** planning Phase 5 (Track Planning) removed. planning now only creates draft beads (Phase 4). Graph validation lives entirely in validating Phase 3.
 
 **The mismatch:** Who owns the beads? Planning creates them, but validating polishes them. If validating finds issues with beads, it needs to modify what planning created. This creates a back-and-forth loop between two skills that should be a clean handoff.
 
@@ -80,7 +80,7 @@
 
 | Issue | Severity | Fix |
 |-------|----------|-----|
-| planning does too much (research + synthesis + beads + track-plan) | Low | Keep as-is — GSD also bundles these in one phase. Add clearer phase descriptions. |
+| planning does too much (research + synthesis + beads) | Low | Keep as-is — GSD also bundles these in one phase. Add clearer phase descriptions. |
 | validating modifies beads created by planning | Medium | Clarify: planning = draft beads, validating = production beads. validating has authority to modify. |
 | swarming vs executing Agent Mail roles unclear | Medium | Clarify: swarming = orchestrator, executing = worker. Different process contexts. |
 | reviewing has too many responsibilities | Low | Keep for v1, monitor during implementation. |

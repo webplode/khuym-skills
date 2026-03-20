@@ -228,7 +228,7 @@ When a worker is stuck (cannot make progress, not a code error):
 ```
 mcp__agent-mail__send_message
   to: orchestrator
-  subject: "Blocked: waiting on <bead-id> in <track>"
+  subject: "Blocked: waiting on <bead-id>"
   body: "<bead-id> cannot proceed until <dependency> completes. Pausing."
 ```
 

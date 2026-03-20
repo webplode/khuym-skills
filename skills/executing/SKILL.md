@@ -10,7 +10,7 @@ description: >-
 # Executing — Worker Loop
 
 You are a **worker subagent** spawned by swarming. Your job is one thing: implement beads.
-Complete your assigned beads, close them cleanly, report back. Nothing else.
+Self-route from the live bead graph, close work cleanly, report back. Nothing else.
 
 ## Loop Overview
 
@@ -31,7 +31,7 @@ Run once at session start.
 
 ```
 macro_start_session(
-  agent_name: "<agent-id>",         # provided by swarming (e.g., "worker-track-A")
+  agent_name: "<agent-id>",         # provided by swarming (e.g., "worker-blue-lake")
   project: "<project-name>",
   capabilities: ["bead-implementation", "file-modification"]
 )
@@ -57,11 +57,7 @@ If `.khuym/HANDOFF.json` exists and was written by a prior instance of you (same
 
 ## Step 2: Get Next Bead
 
-### If swarming assigned you specific beads:
-
-Work them **in dependency order** — complete dependencies before dependents. Your assignment is in the message swarming sent via Agent Mail. Read it if you haven't.
-
-### If running autonomously:
+### Normal path: self-route from the live graph
 
 ```bash
 bv --robot-priority
@@ -69,8 +65,11 @@ bv --robot-priority
 
 Select the top-ranked open bead that:
 - Has no unresolved dependencies (all dependencies closed)
-- Touches files within your designated track's scope (if scope was given)
 - Is not reserved by another agent (Agent Mail will tell you on reservation attempt)
+
+### Exceptional path: direct orchestrator hint
+
+If swarming suggests a bead in Agent Mail, treat it as a startup hint or rescue instruction, not as a permanent assignment. Re-check the live graph before claiming the work.
 
 ### Read the bead fully:
 
@@ -258,13 +257,13 @@ Save to `.khuym/HANDOFF.json`:
   },
   "active_work": {
     "skill": "executing",
-    "assigned_beads_remaining": ["<bead-id>", "<bead-id>"],
-    "next_action": "Get next bead via bv --robot-priority or assigned list"
+    "current_bead": "<bead-id or null>",
+    "next_action": "Run bv --robot-priority and continue from the live graph"
   },
   "resume_instructions": {
     "read_first": ["AGENTS.md", ".khuym/STATE.md", "history/<feature>/CONTEXT.md"],
     "check_mail": true,
-    "priority_next": "Resume assigned bead list or run bv --robot-priority"
+    "priority_next": "Check epic thread, then run bv --robot-priority"
   }
 }
 ```
@@ -276,7 +275,7 @@ send_message(
   to: "orchestrator",
   thread_id: "<epic-thread>",
   subject: "Context handoff from <agent-id>",
-  body: "Context at ~67%. Completed N beads. HANDOFF.json written. Remaining: [bead list]. Safe to spawn replacement."
+  body: "Context at ~67%. Completed N beads. HANDOFF.json written. Safe to resume by checking mail and running bv --robot-priority."
 )
 ```
 
@@ -311,7 +310,7 @@ Stop and reassess if you notice any of these:
 - **Implementing stubs, TODOs, or empty handlers** — these are not implementations; they are deferred failures
 - **Ignoring a locked decision from CONTEXT.md** — swarming and planning effort was spent locking that decision for a reason
 - **Batching multiple bead commits** — atomic commits per bead are the audit trail; don't corrupt it
-- **Self-assigning beads outside your track scope** — track isolation is how parallel work avoids conflicts
+- **Claiming a bead without checking reservations** — self-routing still depends on file coordination
 
 ---
 
@@ -334,10 +333,9 @@ Stop and reassess if you notice any of these:
 
 When spawned, swarming provides (via Agent Mail message or task prompt):
 
-- `agent_name` — your identity (e.g., `worker-track-A`)
+- `agent_name` — your identity (e.g., `worker-blue-lake`)
 - `epic_thread_id` — the Agent Mail thread for this feature
-- `assigned_beads` — optional: specific bead IDs for your track (in priority order)
-- `file_scope` — optional: which paths/directories you own
+- `startup_hint` — optional: a bead or area the orchestrator wants checked first
 - `feature_name` — used to locate `history/<feature>/CONTEXT.md`
 
 If any of these are missing, query Agent Mail for the swarm coordination message before proceeding.

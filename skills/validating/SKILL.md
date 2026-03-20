@@ -15,7 +15,7 @@ metadata:
 
 ## Why This Skill Exists
 
-Research across hundreds of agentic coding failures reveals a consistent pattern: broken plans executed at full speed. The damage happens quietly. An agent completes 40 beads in 3 hours, then hits a dependency cycle at bead 41. Or a spike-worthy integration assumption turns out to be wrong. Or two parallel tracks were writing to the same file the whole time.
+Research across hundreds of agentic coding failures reveals a consistent pattern: broken plans executed at full speed. The damage happens quietly. An agent completes 40 beads in 3 hours, then hits a dependency cycle at bead 41. Or a spike-worthy integration assumption turns out to be wrong. Or two concurrently executable beads were writing to the same file the whole time.
 
 **GSD's core principle:** "Plans are not executed until they pass verification." The Flywheel prescribes 4–6+ bead polishing rounds before any agent touches code. V3's spike phase proves that HIGH-risk items must be validated in isolation before committing an entire swarm to them.
 
@@ -24,7 +24,7 @@ This skill IS that verification. Skipping it is the single highest-probability c
 **What this skill prevents:**
 - Structural plan failures caught only after 40+ beads execute
 - HIGH-risk blockers discovered mid-swarm with no escape path
-- Parallel tracks silently writing to the same files
+- Concurrent beads silently writing to the same files
 - Beads too large for a single agent context
 - Missing dependencies that break execution order
 - Redundant duplicate beads creating double work
@@ -63,7 +63,7 @@ The plan-checker verifies across **8 dimensions** (full criteria in `references/
 |---|-----------|-------------|
 | 1 | Requirement coverage | Does every CONTEXT.md decision map to at least one bead? |
 | 2 | Dependency correctness | Are all bead dependencies valid? Any cycles? |
-| 3 | File scope isolation | Do parallel tracks have overlapping file scopes? |
+| 3 | File scope isolation | Do concurrently executable beads have overlapping file scopes? |
 | 4 | Context budget | Is each bead completable in a single agent context window? |
 | 5 | Test coverage | Does every bead have explicit verification criteria? |
 | 6 | Gap detection | Any requirements not covered by any bead? |
@@ -181,10 +181,10 @@ Detects structural problems: dependency cycles, bottleneck beads, disconnected s
 If `--robot-insights` returns any CRITICAL findings, fix and re-run. Up to 3 sub-rounds.
 
 Also verify no orphaned beads:
-```bash
-bv --robot-plan 2>/dev/null | jq '.plan.unassigned'  # Must be empty
-```
-Any unassigned beads must be given parents or removed before approval.
+Review the bead set for orphaned work:
+- every bead should either belong to the epic or be intentionally out of scope
+- every bead should have a clear place in the dependency graph
+- any stray bead must be attached, deferred, or removed before approval
 
 ### Round 3: Priority Sanity
 
@@ -235,8 +235,8 @@ You have now run three phases of verification. Present a structured summary to t
 VALIDATION COMPLETE — APPROVAL REQUIRED BEFORE EXECUTION
 
 Plan Summary:
-- Beads: <N> total | <N> open | <N> tracks
-- Waves: <N> waves | estimated <N> parallel agents at peak
+- Beads: <N> total | <N> open
+- Estimated worker pool: <N> parallel agents at peak
 
 Plan Verification (Phase 1):
 - All 8 dimensions: PASS (after <N> iterations)

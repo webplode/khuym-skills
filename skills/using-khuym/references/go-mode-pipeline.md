@@ -25,7 +25,7 @@ User: "/go [feature]"
        │
        ▼
 [STEP 2] planning
-       │ Output: approach.md, beads, execution-plan.md
+       │ Output: approach.md, beads
        │
        ▼
 [STEP 3] validating
@@ -36,7 +36,7 @@ User: "/go [feature]"
        │
        ▼
 [STEP 4] swarming → executing (×N parallel workers)
-       │ Wave-by-wave execution via Agent Mail
+       │ Self-routing workers via Agent Mail + bv
        │
        ▼
 [STEP 5] reviewing
@@ -126,7 +126,6 @@ If user says "yes": proceed to Step 2.
 - Phase 2: Oracle synthesis → approach.md with risk levels (LOW/MEDIUM/HIGH)
 - Phase 3: Multi-perspective refinement (for HIGH-stakes features: second model opinion)
 - Phase 4: Decompose to beads (br create, never pseudo-beads)
-- Phase 5: Track planning → bv --robot-plan → execution-plan.md
 
 **Update STATE.md:** `phase: go-mode/validating`
 
@@ -160,9 +159,8 @@ HARD-GATE: This is the most critical gate. Do not proceed until user explicitly 
 
 Present:
   "Validation complete for [feature].
-   [N] beads across [M] tracks.
+   [N] beads ready for execution.
    Risk: [X] HIGH items → spikes: [all passed / N failed]
-   Estimated waves: [W]
    
    Any unresolved concerns: [list or "none"]
    
@@ -179,16 +177,12 @@ If user says "yes": proceed to Step 4.
 **Invoke:** Load `swarming` skill.
 
 **The swarming skill will:**
-- Read `execution-plan.md`
 - Initialize Agent Mail (ensure_project, register_agent as Orchestrator)
-- Compute waves (dependency-aware grouping)
-- For each wave:
-  - Spawn workers via Task tool (each loads `executing` skill)
-  - Each worker: register → bv --robot-priority → reserve files → implement bead → br close → report
-  - Monitor via Agent Mail (blockers, file conflicts, completion reports)
-  - Update STATE.md after each wave
-  - Context checkpoint: if orchestrator context >65%, write HANDOFF.json and pause
-- After all waves: verify all beads closed (bv --robot-triage)
+- Spawn workers via Task tool (each loads `executing` skill)
+- Each worker: register → bv --robot-priority → reserve files → implement bead → br close → report → loop
+- Monitor via Agent Mail (blockers, file conflicts, completion reports, context handoffs)
+- Tend the swarm with overseer broadcasts when needed
+- After all work: verify all beads closed (`bv --robot-triage`)
 
 **Context safety:** If paused mid-swarm:
 ```
@@ -196,10 +190,9 @@ Write .khuym/HANDOFF.json:
 {
   "phase": "go-mode/swarming",
   "feature": "<feature>",
-  "wave": <current_wave>,
   "beads_in_flight": [<list>],
   "beads_complete": [<list>],
-  "next_action": "Resume swarming from wave N"
+  "next_action": "Resume swarming from live bead graph + epic thread"
 }
 ```
 
@@ -308,7 +301,7 @@ last_updated: <timestamp>
 ### If orchestrator context hits 65% mid-swarm:
 ```
 → Write HANDOFF.json (see above)
-→ Present: "Context budget reached. Swarm paused after wave [N].
+→ Present: "Context budget reached. Swarm paused.
             [X] beads complete, [Y] in flight.
             Resume in a new session with HANDOFF.json."
 → End turn gracefully
@@ -317,7 +310,7 @@ last_updated: <timestamp>
 ### If P1 findings are present at GATE 3 and user wants to fix:
 ```
 → Create fix beads via br create for each P1 finding
-→ Load swarming skill (single wave, fix beads only)
+→ Load swarming skill (fix-bead swarm only)
 → After execution: re-run reviewing (targeted — fixes diff only)
 → Re-present GATE 3
 → Repeat until P1 = 0 or user explicitly overrides

@@ -18,10 +18,10 @@ Bootstrap meta-skill. Load this first. It tells you which skill to invoke next a
 |---|-------|----------------------|--------------|
 | 1 | `using-khuym` | This file. Routing, go mode, red flags. | Starting any session |
 | 2 | `exploring` | Identify gray areas, lock decisions → CONTEXT.md | Feature request is vague or new; "what exactly should this do?" |
-| 3 | `planning` | Research + multi-model synthesis → beads + execution plan | Decisions are locked (CONTEXT.md exists); ready to research and decompose |
+| 3 | `planning` | Research + multi-model synthesis → beads + approach | Decisions are locked (CONTEXT.md exists); ready to research and decompose |
 | 4 | `validating` | Plan-checker loop (≤3×, 8 dims) + spike execution + bead polishing | Beads exist; need to verify plan soundness before execution |
-| 5 | `swarming` | Wave-based parallel agent launch via Agent Mail + bv | Beads are validated; ready to execute at scale |
-| 6 | `executing` | Single worker loop: reserve → implement bead → close → loop | Spawned by swarming; one agent, one track |
+| 5 | `swarming` | Launch+tend worker pool via Agent Mail + bv | Beads are validated; ready to execute at scale |
+| 6 | `executing` | Single worker loop: priority → reserve → implement bead → close → loop | Spawned by swarming; one agent, self-routing from the live graph |
 | 7 | `reviewing` | 5 parallel review agents (P1/P2/P3) + artifact verification + UAT | Execution complete; need quality gate before merge |
 | 8 | `compounding` | Capture learnings → history/learnings/ → critical-patterns.md | Feature shipped; extract patterns/decisions/failures for future runs |
 | 9 | `writing-khuym-skills` | TDD-for-skills: RED-GREEN-REFACTOR + persuasion psychology | Improving or creating khuym skills themselves |
@@ -112,7 +112,7 @@ GATE 1 (after exploring):
   HARD-GATE: do not invoke planning until user approves.
 
 GATE 2 (after validating):
-  Present: bead count, track count, risk summary, spike results.
+  Present: bead count, risk summary, spike results.
   Ask: "Beads verified. Approve execution?"
   HARD-GATE: do not invoke swarming until user approves.
 
@@ -210,7 +210,6 @@ history/<feature>/
   CONTEXT.md        ← Locked decisions from exploring (source of truth)
   discovery.md      ← Research findings from planning
   approach.md       ← Synthesis + risk map from planning
-  execution-plan.md ← Tracks + waves from planning
 
 history/learnings/
   critical-patterns.md      ← Promoted critical learnings (read always)
@@ -230,11 +229,11 @@ Each skill reads from upstream artifacts and writes for downstream:
 | Skill | Reads | Writes |
 |-------|-------|--------|
 | exploring | (user conversation) | history/\<feature>/CONTEXT.md |
-| planning | CONTEXT.md, critical-patterns.md | discovery.md, approach.md, .beads/*, execution-plan.md |
+| planning | CONTEXT.md, critical-patterns.md | discovery.md, approach.md, .beads/* |
 | validating | .beads/*, approach.md, CONTEXT.md | validated beads, .spikes/ results |
-| swarming | execution-plan.md, validated beads | Agent Mail threads, STATE.md |
-| executing | bead file, file scope | implementation commits, br close |
-| reviewing | diff, CONTEXT.md, execution-plan.md | P1/P2/P3 findings |
+| swarming | validated beads, STATE.md | Agent Mail threads, HANDOFF.json, updated STATE.md |
+| executing | bead file, Agent Mail, CONTEXT.md | implementation commits, br close |
+| reviewing | diff, CONTEXT.md, approach.md, beads | P1/P2/P3 findings |
 | compounding | review findings, full feature history | history/learnings/YYYYMMDD-\<slug>.md, critical-patterns.md |
 
 **Handoff phrase pattern:** Every skill ends with an explicit handoff:

@@ -99,29 +99,28 @@ PRIORITY FIXES (if FAIL):
 
 ## Dimension 2: Dependency Correctness
 
-**The Question:** Are all bead dependencies valid, acyclic, and consistent with wave assignments?
+**The Question:** Are all bead dependencies valid, acyclic, and consistent with the intended execution order?
 
 **How to check:**
 1. Build a dependency graph from the `dependencies: [...]` fields in each bead
 2. Check for cycles using DFS: does any bead directly or transitively depend on itself?
 3. Check validity: for every dependency listed, does the referenced bead ID actually exist in the bead set?
-4. Check wave consistency: if bead A is in Wave 2 and bead B is in Wave 1, bead A can depend on B but B cannot depend on A
+4. Check execution-order consistency: dependency direction must match the intended implementation order
 5. Check for implicit undeclared dependencies: if bead A writes to `src/auth/middleware.ts` and bead B reads from `src/auth/middleware.ts`, does B depend on A?
 
 **PASS criteria:**
 - No cycles in the dependency graph
 - All referenced bead IDs exist
-- Wave assignments are consistent with declared dependencies
 - No obvious implicit dependencies (same file, no declared relationship)
 
 **FAIL examples:**
 - BR-015 depends on BR-022, BR-022 depends on BR-031, BR-031 depends on BR-015 → cycle
 - BR-007 lists `dependencies: ["BR-999"]` but BR-999 does not exist in the bead set
-- BR-044 (Wave 1) lists `dependencies: ["BR-041"]` but BR-041 is also Wave 1 — they should not have a dependency if they're parallel
+- BR-044 is described as independently executable, but lists `dependencies: ["BR-041"]` with no justification
 - BR-011 creates `src/db/schema.ts`, BR-008 imports from `src/db/schema.ts`, but BR-008 has no dependency on BR-011
 
 **PASS examples:**
-- All wave assignments verified: Wave 2 beads only depend on Wave 1 beads, Wave 3 only depend on Wave 1 or Wave 2
+- All dependencies flow in one direction and match the intended build order
 - No bead ID appears in its own dependency chain at any depth
 - File-based implicit dependencies are all explicitly declared
 
@@ -129,28 +128,28 @@ PRIORITY FIXES (if FAIL):
 
 ## Dimension 3: File Scope Isolation
 
-**The Question:** Do parallel tracks have overlapping file scopes?
+**The Question:** Do beads that may execute concurrently have overlapping file scopes?
 
 **How to check:**
 1. Extract the file scope for each bead (from the `files:` field or from the description)
-2. Group beads by track
-3. For beads in the same wave (parallel execution), check if any two beads in different tracks claim the same file
-4. Shared files within the same track are acceptable (sequential execution). Shared files across parallel tracks are a conflict.
+2. Identify which beads could plausibly execute concurrently based on dependencies
+3. Check whether any concurrently executable beads claim the same file
+4. Shared files are acceptable only when the dependency graph forces sequential execution or the overlap is explicitly called out
 
 **PASS criteria:**
-- No file is claimed by two beads that run in parallel (same wave, different tracks)
-- OR: shared files are explicitly handled (one bead has a `depends_on` the other)
-- Config files, package.json, and similar shared resources either have a dedicated bead or are handled by only one track
+- No file is claimed by two beads that may execute concurrently
+- OR: shared files are explicitly handled by dependencies or notes
+- Config files, package.json, and similar shared resources either have a dedicated dependency bead or a clearly enforced owner
 
 **FAIL examples:**
-- Wave 1: BR-003 (Track A) writes to `src/api/router.ts` — Wave 1: BR-007 (Track B) also writes to `src/api/router.ts` → conflict
-- Two separate feature beads both modify `package.json` in parallel waves
-- BR-014 and BR-019 are in the same wave but both update `prisma/schema.prisma` — database schema changes cannot safely parallelize
+- BR-003 and BR-007 can both be selected by workers immediately, and both write `src/api/router.ts` → conflict
+- Two separate feature beads both modify `package.json` without a dependency forcing order
+- BR-014 and BR-019 can run concurrently and both update `prisma/schema.prisma` — database schema changes cannot safely parallelize
 
 **PASS examples:**
-- `src/api/router.ts` is only written by BR-003 in Wave 1; BR-007 in Wave 2 depends on BR-003
-- BR-022 and BR-025 are parallel but have fully disjoint file sets: `src/auth/` vs. `src/payments/`
-- `package.json` updates are consolidated into a single Wave 1 bead that all other beads depend on
+- `src/api/router.ts` is only written by BR-003; BR-007 depends on BR-003 before touching adjacent integration code
+- BR-022 and BR-025 are both ready work, but have fully disjoint file sets: `src/auth/` vs. `src/payments/`
+- `package.json` updates are consolidated into a single dependency bead that all other affected beads reference
 
 ---
 

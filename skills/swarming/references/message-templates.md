@@ -7,36 +7,36 @@ Standard message formats for swarm coordination. All messages post to the epic t
 ## 1. Spawn Notification
 
 **Posted by:** Orchestrator  
-**When:** After all Phase 2 Agent Mail setup is complete, before spawning any workers  
-**Purpose:** Broadcasts swarm start to the thread; serves as audit record
+**When:** After Agent Mail setup is complete, before spawning workers
+**Purpose:** Announces the swarm start and the self-routing execution model
 
 ```
-Subject: [SWARM START] <feature-name> — Wave 1 of <M>
+Subject: [SWARM START] <feature-name>
 Thread: <EPIC_ID>
 Importance: NORMAL
 
 Swarm initialized for epic <EPIC_ID>.
 
-Plan:
-- Total beads: <N>
-- Total waves: <M>
-- Tracks: <list track names>
+Execution model:
+- Workers are self-routing via `bv --robot-priority`
+- File coordination happens through Agent Mail reservations
+- Blockers and course corrections happen in this thread
 
-Wave 1 workers spawning now:
-- Worker-A1 → Track: <track-name>, Beads: <bead-ids>
-- Worker-B1 → Track: <track-name>, Beads: <bead-ids>
-[one line per worker in wave 1]
+Workers spawning now:
+- <AGENT_NAME_1>
+- <AGENT_NAME_2>
+- <AGENT_NAME_3>
 
-All workers: join this thread, post spawn acknowledgment, then load the executing skill.
+All workers: join this thread, post startup acknowledgment, then load the executing skill.
 ```
 
 ---
 
 ## 2. Worker Spawn Acknowledgment
 
-**Posted by:** Worker (automatically, as first action after macro_start_session)  
+**Posted by:** Worker
 **When:** Immediately on startup  
-**Purpose:** Confirms worker is live; orchestrator uses this to verify all workers joined
+**Purpose:** Confirms the worker is live and following the expected loop
 
 ```
 Subject: [ONLINE] <AGENT_NAME> ready
@@ -44,10 +44,8 @@ Thread: <EPIC_ID>
 Importance: NORMAL
 
 <AGENT_NAME> online.
-Track: <track-name>
-Assigned beads: <bead-id-1>, <bead-id-2>
-File scope: <path-1>, <path-2>
-Status: Loading executing skill. Starting on <first-bead-id>.
+Status: Loading executing skill.
+Next step: read context, run `bv --robot-priority`, claim the top executable bead.
 ```
 
 ---
@@ -56,7 +54,7 @@ Status: Loading executing skill. Starting on <first-bead-id>.
 
 **Posted by:** Worker  
 **When:** After each bead is closed with `br close`  
-**Purpose:** Notifies orchestrator of progress; triggers orchestrator's completion tally
+**Purpose:** Notifies orchestrator of progress
 
 ```
 Subject: [DONE] <bead-id>: <bead-title>
@@ -75,8 +73,11 @@ Files modified:
 - <path/to/file1>
 - <path/to/file2>
 
+Verification:
+- <command/result summary>
+
 Context budget: ~<XX>% used
-Next bead: <next-bead-id or "none — track complete">
+Next action: return to `bv --robot-priority`
 ```
 
 ---
@@ -85,7 +86,7 @@ Next bead: <next-bead-id or "none — track complete">
 
 **Posted by:** Worker  
 **When:** Immediately upon discovering a blocking issue  
-**Purpose:** Requests orchestrator intervention; must not be delayed
+**Purpose:** Requests orchestrator intervention
 
 ```
 Subject: [BLOCKED] <bead-id> — <one-line description>
@@ -97,15 +98,12 @@ BLOCKED: <AGENT_NAME> cannot proceed on bead <bead-id>.
 Blocker type: [MISSING_CONTEXT | DEPENDENCY_NOT_MET | TECHNICAL_FAILURE | AMBIGUITY]
 
 Description:
-<Clear description of what is blocking. Include error messages, file names, relevant details.>
+<Clear description of what is blocking. Include errors, file names, and relevant details.>
 
 What I need to proceed:
-<Specific ask: information, a decision, a file reservation release, etc.>
+<Specific ask: information, release of a file reservation, user decision, etc.>
 
-Can another worker unblock me?
-<Yes, if Worker-X has completed bead Y / No, this requires human input>
-
-I am now paused on this bead. I will not time out — I will wait for a reply on this thread.
+I am paused on this bead and waiting for a reply on this thread.
 ```
 
 ---
@@ -113,35 +111,33 @@ I am now paused on this bead. I will not time out — I will wait for a reply on
 ## 5. File Conflict Request
 
 **Posted by:** Worker  
-**When:** Worker needs to modify a file outside its assigned file scope  
-**Purpose:** Coordinates file access without creating merge conflicts
+**When:** Worker needs a file another worker currently holds
+**Purpose:** Coordinates file access without preassigned worker scopes
 
 ```
 Subject: [FILE CONFLICT] <path/to/file>
 Thread: <EPIC_ID>
 Importance: HIGH
 
-File conflict: <AGENT_NAME> needs access to a file outside its scope.
+File conflict: <AGENT_NAME> needs a file that is currently reserved.
 
 Requested file: <path/to/file>
 Currently reserved by: <AGENT_NAME_holder or "unknown">
 My bead: <bead-id>
 Reason needed: <Why this file is required for this bead>
 
-Options:
-1. If <holder> can release early: please post release confirmation
-2. If this file is not reserved: orchestrator please expand my scope
-3. If this cannot be resolved: I can defer this change to a follow-up bead
-
-Awaiting orchestrator decision.
+Awaiting orchestrator decision:
+1. Request holder release at a safe checkpoint
+2. Ask me to wait
+3. Ask me to defer and create a follow-up bead
 ```
 
 ---
 
-## 6. File Conflict Resolution (Orchestrator Reply)
+## 6. File Conflict Resolution
 
 **Posted by:** Orchestrator  
-**When:** Responding to a File Conflict Request  
+**When:** Replying to a File Conflict Request
 
 ```
 Subject: Re: [FILE CONFLICT] <path/to/file>
@@ -152,46 +148,37 @@ Decision on file conflict for <path/to/file>:
 
 [Choose one:]
 
-OPTION A — Scope expanded:
-<AGENT_NAME_requester>: your file scope now includes <path/to/file>. Proceed.
+OPTION A — Wait:
+<AGENT_NAME_requester>: wait for <AGENT_NAME_holder> to release the reservation.
 
 OPTION B — Release requested:
-<AGENT_NAME_holder>: please release reservation on <path/to/file> when you reach a safe checkpoint. 
-<AGENT_NAME_requester>: stand by until <holder> confirms release.
+<AGENT_NAME_holder>: please release <path/to/file> when you reach a safe checkpoint.
+<AGENT_NAME_requester>: stand by until release is confirmed.
 
 OPTION C — Defer:
-<AGENT_NAME_requester>: defer this change. Create a follow-up bead with:
-  br create "Follow-up: <description>" --depends-on <bead-id>
-Then continue to your next assigned bead.
+<AGENT_NAME_requester>: defer this change. Create a follow-up bead and continue with the next executable bead.
 ```
 
 ---
 
-## 7. Wave Transition Broadcast
+## 7. Overseer Broadcast
 
 **Posted by:** Orchestrator  
-**When:** All workers in the current wave have posted completion reports  
-**Purpose:** Closes out wave, announces next wave, triggers next spawn
+**When:** Shared correction or reminder is needed across the swarm
 
 ```
-Subject: [WAVE COMPLETE] Wave <N> done — starting Wave <N+1>
+Subject: [OVERSEER] <short instruction>
 Thread: <EPIC_ID>
-Importance: NORMAL
+Importance: HIGH
 
-Wave <N> complete.
+Broadcast to all workers:
 
-Beads completed this wave: <list bead-ids>
-Post-wave verification: [PASS | FAIL — see details below]
+<Instruction or correction>
 
-[If PASS:]
-Spawning Wave <N+1> workers now:
-- Worker-A<N+1> → Track: <track>, Beads: <bead-ids>
-- Worker-B<N+1> → Track: <track>, Beads: <bead-ids>
-
-[If FAIL:]
-Build/test failure detected. Diagnosing.
-Fix beads created: <fix-bead-ids>
-Running fix wave before Wave <N+1>.
+Examples:
+- Re-read AGENTS.md before continuing
+- Do not touch <file/path> until blocker <id> is resolved
+- Decision D7 is now locked; honor it in all remaining work
 ```
 
 ---
@@ -200,7 +187,7 @@ Running fix wave before Wave <N+1>.
 
 **Posted by:** Orchestrator  
 **When:** Orchestrator detects its own context is approaching 65%  
-**Purpose:** Warns workers; triggers handoff write
+**Purpose:** Warns workers and records the pause
 
 ```
 Subject: [CONTEXT WARNING] Orchestrator approaching capacity
@@ -209,15 +196,17 @@ Importance: HIGH
 
 Orchestrator context at ~<XX>%. Writing HANDOFF.json now.
 
-Current wave: Wave <N>
-Completed: <X> of <Y> beads in this wave
-Remaining waves: <list>
+Current status:
+- Open beads: <count>
+- In-progress beads: <count>
+- Known blockers: <count>
 
-Workers: continue your current beads. After your next bead completion, post a status update to this thread.
+Workers: continue current bead safely, then report status to this thread.
 
-If orchestrator does not resume within this session, a new orchestrator session can resume using:
-  .khuym/HANDOFF.json
-  bv --robot-triage --graph-root <EPIC_ID>
+Resume artifacts:
+- .khuym/HANDOFF.json
+- .khuym/STATE.md
+- bv --robot-triage --graph-root <EPIC_ID>
 ```
 
 ---
@@ -225,7 +214,7 @@ If orchestrator does not resume within this session, a new orchestrator session 
 ## 9. Swarm Completion Announcement
 
 **Posted by:** Orchestrator  
-**When:** All waves complete, all beads verified closed  
+**When:** All beads are verified closed
 
 ```
 Subject: [SWARM COMPLETE] <feature-name> — all beads closed
@@ -236,12 +225,11 @@ Swarm complete for epic <EPIC_ID>.
 
 Summary:
 - Beads implemented: <N>
-- Waves executed: <M>
 - Workers used: <K>
 - Build status: PASS
 - Test status: PASS
 
-All workers: your work is complete. Thank you.
+All workers: your work is complete.
 
 Next step: Invoke the reviewing skill.
 ```
@@ -265,24 +253,17 @@ Write to `.khuym/HANDOFF.json` when orchestrator context exceeds 65%:
   "swarm": {
     "epic_id": "<EPIC_ID>",
     "feature_name": "<feature-name>",
-    "project_key": "<project-root-path>",
-    "total_waves": "<M>",
-    "current_wave": "<N>",
-    "waves_complete": ["Wave 1", "Wave 2"],
-    "waves_remaining": ["Wave 3"]
+    "project_key": "<project-root-path>"
   },
-  "wave_progress": {
-    "current_wave_number": "<N>",
-    "beads_assigned": ["<bead-id-1>", "<bead-id-2>"],
-    "beads_complete": ["<bead-id-1>"],
-    "beads_in_progress": ["<bead-id-2>"],
-    "beads_not_started": []
+  "graph_status": {
+    "open_beads": ["<bead-id-1>", "<bead-id-2>"],
+    "in_progress_beads": ["<bead-id-3>"],
+    "blocked_beads": ["<bead-id-4>"]
   },
   "active_workers": [
     {
-      "agent_name": "Worker-A<N>",
-      "track": "<track-name>",
-      "current_bead": "<bead-id-2>",
+      "agent_name": "<AGENT_NAME>",
+      "current_bead": "<bead-id-3>",
       "status": "in_progress"
     }
   ],
@@ -295,11 +276,11 @@ Write to `.khuym/HANDOFF.json` when orchestrator context exceeds 65%:
     }
   ],
   "resume_instructions": {
-    "priority_next": "Poll epic thread for any worker completions/blockers since pause",
-    "read_first": [".khuym/STATE.md", "history/<feature>/execution-plan.md"],
+    "priority_next": "Poll epic thread, then inspect the live graph",
+    "read_first": [".khuym/STATE.md", ".khuym/HANDOFF.json"],
     "check_mail": true,
     "bead_check": "bv --robot-triage --graph-root <EPIC_ID>",
-    "restore_confirmation": "Confirm: wave <N> in progress, <K> workers active. Resume monitoring? [y/n]"
+    "restore_confirmation": "Confirm open/in-progress/blocked counts still match before resuming"
   },
   "context_at_pause": {
     "tokens_used_pct": 0.67,

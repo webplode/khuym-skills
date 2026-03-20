@@ -126,9 +126,9 @@ apps/
 
 ---
 
-## 6. Execution Order
+## 6. Dependency Order
 
-> Dependency order for bead creation. Workers cannot start a layer until the previous layer is complete.
+> Dependency order for bead creation. This is planning guidance, not a runtime wave scheduler.
 
 ```
 Layer 1 (parallel): Domain — entities, ports (no deps)
@@ -140,9 +140,9 @@ Layer 5 (sequential): UI (depends on Layer 4)
 
 ### Parallelizable Groups
 
-- Group A (Wave 1): `<bead 1>`, `<bead 2>` — no dependencies between them
-- Group B (Wave 2): `<bead 3>` — depends on Group A completing
-- Group C (Wave 2): `<bead 4>` — depends on Group A, can run parallel to Group B
+- Group A: `<bead 1>`, `<bead 2>` — no dependencies between them
+- Group B: `<bead 3>` — depends on Group A completing
+- Group C: `<bead 4>` — depends on Group A, can run parallel to Group B
 
 ---
 

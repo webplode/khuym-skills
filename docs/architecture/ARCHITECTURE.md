@@ -6,6 +6,18 @@
 
 ---
 
+## Document Role
+
+This file is the **Khuym source of truth** for workflow and skill boundaries.
+
+Rules:
+- `docs/architecture/ARCHITECTURE.md` defines the canonical Khuym contract
+- `skills/*/SKILL.md` files are expanded operational versions of this contract
+- if a skill doc disagrees with this file, this file wins and the skill doc must be updated
+- Flywheel and GSD are upstream references that inform Khuym; they are not the direct runtime contract for this repo
+
+---
+
 ## What v1 Got Wrong
 
 1. **Planning/Orchestrating/Executing were generic abstractions.** The existing skills were designed around Flywheel's actual 8-phase workflow (Plan → Beads → Polishing → Swarm → Tend → Review). I renamed them to generic terms and lost the Flywheel mechanics.
@@ -18,7 +30,7 @@
 
 ---
 
-## The Actual Flywheel Workflow (Source of Truth)
+## External Reference: Flywheel Workflow
 
 From [agent-flywheel.com/complete-guide](https://agent-flywheel.com/complete-guide):
 
@@ -33,7 +45,7 @@ Phase 7: Tend the Swarm (human oversight, rescue stuck agents, broadcast correct
 Phase 8: Review, Test, Harden (self-review, peer review, UBS scan, test coverage)
 ```
 
-## The GSD Workflow (Validate-First Source of Truth)
+## External Reference: GSD Workflow
 
 From [GSD's core philosophy](https://github.com/gsd-build/get-shit-done):
 
@@ -59,7 +71,7 @@ GSD's key insight: **"Plans are not executed until they pass verification."** Th
 | 2 | `exploring` | GSD discuss-phase + Superpowers brainstorming | Gray area identification, Socratic Q&A, CONTEXT.md — **decisions before research** |
 | 3 | `planning` | Flywheel Phase 1-3 + GSD research+plan | Discovery (gkg, parallel agents), synthesis (Task subagent), approach + risk map, multi-perspective refinement |
 | 4 | `validating` | GSD plan-checker + Flywheel bead polishing + V3 spike phase | **The gate.** Plan verification (3 iterations), spike execution for HIGH risk, bead polishing (multiple rounds), bv validation. Nothing executes until this passes. |
-| 5 | `swarming` | Flywheel Phase 6-7 (launch + tend) | Bead-to-agent assignment via bv --robot-plan, Agent Mail setup, spawn parallel workers (Task tool), wave execution, monitor, handle blockers, tend the swarm |
+| 5 | `swarming` | Flywheel Phase 6-7 (launch + tend) | Agent Mail setup, spawn parallel workers (Task tool), monitor, handle blockers, broadcast corrections, tend the swarm |
 | 6 | `executing` | Flywheel per-agent loop | Single worker: register → bv --robot-priority → reserve files → implement bead → br close → report → loop |
 | 7 | `reviewing` | Flywheel Phase 8 + CE review + GSD verify-work | 4-5 review agents, 3-level artifact verification, P1/P2/P3 findings, human UAT gate |
 | 8 | `compounding` | CE compound loop + Flywheel CASS/CM feedback | Capture learnings (patterns/decisions/failures) → history/learnings/, critical-patterns.md, optional CASS indexing |
@@ -74,7 +86,7 @@ GSD's key insight: **"Plans are not executed until they pass verification."** Th
 - Skipping it is the #1 cause of wasted work
 - GSD's entire "discuss first, plan second, execute third" philosophy demands that execution CANNOT start until validation passes
 
-**`swarming` replaces `orchestrating`.** The Flywheel's swarm model isn't generic "orchestration" — it's a specific pattern: bv computes tracks → Agent Mail coordinates → workers execute in parallel waves → human tends the swarm. The name `swarming` captures this.
+**`swarming` replaces `orchestrating`.** The Flywheel's swarm model isn't generic "orchestration" — it's a specific pattern: launch workers, let them self-route from the live bead graph with `bv --robot-priority`, coordinate through Agent Mail, and have a human or overseer tend the swarm. The name `swarming` captures this.
 
 **`exploring` replaces `brainstorming`.** GSD calls it "discuss" because the point is to explore gray areas and lock decisions BEFORE research/planning. "Brainstorming" suggests creative ideation. "Exploring" is closer to GSD's intent: systematic extraction of decisions.
 
@@ -86,7 +98,7 @@ GSD's key insight: **"Plans are not executed until they pass verification."** Th
 
 ### 3.1 using-khuym
 
-Same as v1. Bootstrap meta-skill. Lists all skills, priority rules, red flags, go mode.
+Bootstrap meta-skill. Lists all skills, priority rules, red flags, and go mode.
 
 **Go mode gates (revised):**
 ```
@@ -175,7 +187,7 @@ Phase 3: Multi-Perspective Refinement (from Flywheel Phases 2-3)
   → "What did this approach miss? What are the blind spots?"
   → Iterate approach document (1-2 rounds, not 4-5 — we're not doing Flywheel's extreme refinement)
 
-Phase 4: Decomposition (Beads — existing, unchanged)
+Phase 4: Decomposition (Beads)
   → Load file-beads skill → br create
   → Embed spike learnings in bead descriptions (if applicable)
   → Embed approach decisions in bead context fields
@@ -204,7 +216,7 @@ Phase 1: Plan Verification (from GSD plan-checker, max 3 iterations)
   → Verify across 8 dimensions (from GSD):
     1. Requirement coverage — does every CONTEXT.md decision map to a bead?
     2. Dependency correctness — are bead dependencies valid? No cycles?
-    3. File scope isolation — do parallel tracks have overlapping file scopes?
+    3. File scope isolation — do concurrently executable beads have overlapping file scopes?
     4. Context budget — is each bead completable in a single agent context?
     5. Test coverage — does every bead have verification criteria?
     6. Gap detection — any requirements not covered by any bead?
@@ -232,7 +244,7 @@ Phase 3: Bead Polishing (from Flywheel Phase 5)
 
 Phase 4: Final Approval Gate
   → Present to user:
-    - Number of beads, number of tracks
+    - Number of beads ready for execution
     - Risk assessment (how many HIGH items, spike results)
     - Estimated execution scope
     - Any unresolved concerns
@@ -261,54 +273,44 @@ skills/validating/
 
 ### 3.5 swarming (replaces orchestrating)
 
-**Source:** Flywheel Phase 6-7 (Launch + Tend) + existing `orchestrator` skill + GSD wave execution
+**Source:** Flywheel Phase 6-7 (Launch + Tend) + existing `orchestrator` skill
 
-**Why "swarming":** The Flywheel's execution model is specifically a swarm — multiple agents working simultaneously on different tracks, coordinated via Agent Mail, with human tending. This isn't generic orchestration.
+**Why "swarming":** The Flywheel's execution model is specifically a swarm — multiple agents launched in parallel, coordinated via Agent Mail, and tended by a human/overseer. In Khuym, this is expressed in Codex terms rather than literal `ntm` commands, but the behavioral contract is the same.
 
 **Process:**
 ```
-Phase 1: Compute Execution Plan
+Phase 1: Confirm Swarm Readiness
   → Read EPIC_ID from .khuym/STATE.md or ask user
-  → bv --robot-plan → compute parallel tracks from live bead graph
-  → Write history/<feature>/execution-plan.md (for audit trail)
+  → Check live bead status with bv --robot-triage
+  → Confirm the graph is ready for execution
 
-Phase 2: Initialize Agent Mail (existing, unchanged)
+Phase 2: Initialize Agent Mail
   → ensure_project → register_agent as Orchestrator
   → Create epic thread
+  → Post swarm start notification
 
-Phase 3: Compute Waves (from GSD)
-  → Analyze bead dependencies across tracks
-  → Group into waves: independent beads → Wave 1, dependent → Wave 2+
-  → "When we execute beads, open multiple claude code sessions or one to take down the bead" (user's stated preference)
+Phase 3: Spawn Workers
+  → Task tool: spawn worker with executing skill loaded
+  → Provide: epic thread, Agent Mail identity, feature context, optional startup hint
+  → Workers are self-routing, not permanently assigned tracks or waves
 
-Phase 4: Spawn Workers (existing, refined)
-  → For each track in current wave:
-    → Task tool: spawn worker with executing skill loaded
-    → Provide: track beads, file scope, epic thread, Agent Mail identity
-  → All workers in same wave spawn simultaneously (parallel)
-
-Phase 5: Monitor + Tend (from Flywheel Phase 7)
+Phase 4: Monitor + Tend
   → Poll Agent Mail for:
+    - Worker startup acknowledgments
     - Bead completion reports
     - Blocker alerts
     - File conflict requests
-  → Handle cross-track issues:
-    - File conflicts → coordinate release/re-reservation
-    - Blockers → provide context or escalate to user
-  → Update .khuym/STATE.md after each wave
+    - Context handoffs
+  → Handle conflicts, blockers, and overseer broadcasts
+  → Update .khuym/STATE.md
   → Context checkpoint: if context >65%, write HANDOFF.json and suggest pause
 
-Phase 6: Wave Transition
-  → When all workers in current wave complete:
-    → Run post-wave verification (build still compiles? tests still pass?)
-    → Start next wave
-  → Repeat until all waves complete
-
-Phase 7: Swarm Complete
+Phase 5: Swarm Complete
   → Verify all beads closed: bv --robot-triage --graph-root <epic-id>
-  → "All tracks complete. Invoke reviewing skill."
+  → Run final build/test verification
+  → "All beads closed. Invoke reviewing skill."
 
-Handoff: "Swarm execution complete. N beads implemented across M waves. Invoke reviewing skill."
+Handoff: "Swarm execution complete. All beads closed. Invoke reviewing skill."
 ```
 
 **File structure:**
@@ -320,14 +322,14 @@ skills/swarming/
     └── message-templates.md      ← Agent Mail message formats
 ```
 
-### 3.6 executing (worker — largely unchanged)
+### 3.6 executing (worker)
 
 **Source:** Existing `worker` skill + Flywheel per-agent loop
 
 **The Flywheel loop is already in the existing worker skill:**
 ```
 1. Register agent (Agent Mail)
-2. Get next bead (bv --robot-priority or from track assignment)
+2. Get next bead (bv --robot-priority from the live graph)
 3. Reserve files
 4. Read bead → implement
 5. br close → report via Agent Mail
@@ -352,7 +354,7 @@ Phase 1: Automated Review (5 parallel agents)
   → Agent 3: security (OWASP, injection, auth, data exposure)
   → Agent 4: test-coverage (missing tests, edge cases)
   → Agent 5: learnings-synthesizer (always last — cross-reference past learnings, suggest compounding entries)
-  → Each agent gets: diff + CONTEXT.md + execution-plan.md (isolated context)
+  → Each agent gets: diff + CONTEXT.md + approach.md (isolated context)
   → Collect findings → prioritize P1/P2/P3
 
 Phase 2: 3-Level Artifact Verification (from GSD gsd-verifier)
@@ -376,11 +378,11 @@ Phase 4: Finishing (absorbed from v1's finishing skill)
 Handoff: "Feature complete. Invoke compounding skill to capture learnings."
 ```
 
-### 3.8 compounding (unchanged from v1)
+### 3.8 compounding
 
 Same design. Three subagents → `history/learnings/YYYYMMDD-<slug>.md`. Three categories: patterns/decisions/failures. Promote critical items to `critical-patterns.md`. Optional CASS integration.
 
-### 3.9 writing-khuym-skills (unchanged from v1)
+### 3.9 writing-khuym-skills
 
 Same design. TDD-for-skills methodology from Superpowers. Pressure tests, persuasion psychology, CREATION-LOG template.
 
@@ -412,11 +414,10 @@ validating                         ← "Is this plan actually sound?" ★ THE GA
 │ GATE: "Approve for execution?"
 ▼
 swarming                           ← "Launch the agents"
-│ Wave computation                 ← Dependency-aware parallel execution
 │ Spawn workers (Task tool)        ← Each worker loads executing skill
 │ Monitor via Agent Mail           ← Tend the swarm
-├── executing (×N parallel)        ← Per-bead implementation loop
-│   └── br → implement → close → report → next bead
+├── executing (×N parallel)        ← Per-bead self-routing loop
+│   └── bv --robot-priority → implement → close → report → next bead
 │
 ▼
 reviewing                          ← "Did we build it right?"
@@ -439,7 +440,7 @@ USER: "Quick fix: update timeout"
 ├── using-khuym → quick mode: skip exploring
 ▼
 planning (lightweight)
-│ Single bead, no tracks
+│ Single bead, no worker pool
 ▼
 validating (lightweight)
 │ Skip plan-checker loop (single bead)
@@ -480,7 +481,7 @@ Every phase validates something different. But `validating` is the critical gate
 | Human UAT with debug agents on failure | GSD verify-work | reviewing Phase 3 |
 | STATE.md as working memory | GSD | .khuym/STATE.md |
 | HANDOFF.json for session continuity | GSD continue-here.md | .khuym/HANDOFF.json |
-| Wave-based parallel execution | GSD execute-phase | swarming Phase 3-6 |
+| Worker self-routing from live graph | Flywheel Phase 6 + per-agent protocol | swarming + executing |
 | Multi-model competition / multi-perspective refinement | Flywheel Phases 2-3 | planning Phase 3 |
 | Bead polishing (multiple rounds, fresh eyes, dedup) | Flywheel Phase 5 | validating Phase 3 |
 | Swarm launch + tend pattern | Flywheel Phases 6-7 | swarming skill |
@@ -502,7 +503,7 @@ Every phase validates something different. But `validating` is the critical gate
 
 ---
 
-## 6. File Structure (unchanged from v1 except renaming)
+## 6. File Structure
 
 ```
 skills/
@@ -519,7 +520,7 @@ skills/
 └── gkg/                 ← Support skill
 ```
 
-### Project runtime files (unchanged)
+### Project runtime files
 
 ```
 project-root/
@@ -534,7 +535,6 @@ project-root/
 │   │   ├── CONTEXT.md
 │   │   ├── discovery.md
 │   │   ├── approach.md
-│   │   └── execution-plan.md
 │   └── learnings/
 │       ├── critical-patterns.md
 │       └── YYYYMMDD-<slug>.md
@@ -546,20 +546,20 @@ project-root/
 ## 7. Build Plan (Beads for Building Khuym)
 
 ```
-Wave 1 (independent, parallel):
+Dependency Group A (independent, parallel):
   - using-khuym (bootstrap, references other skills by name)
   - exploring (standalone, produces CONTEXT.md)
   - executing (standalone worker loop)
   - debugging (standalone support)
   - gkg (standalone support)
 
-Wave 2 (depends on Wave 1 patterns):
+Dependency Group B (depends on Group A patterns):
   - planning (reads CONTEXT.md from exploring, uses gkg)
   - compounding (standalone but needs learnings format defined)
-  - writing-khuym-skills (needs skill patterns from Wave 1 as examples)
+  - writing-khuym-skills (needs skill patterns from Group A as examples)
 
-Wave 3 (depends on Wave 2):
+Dependency Group C (depends on Group B):
   - validating (reads beads from planning, uses plan-checker pattern)
   - reviewing (reads execution results, review agent prompts)
-  - swarming (references executing skill in worker template, reads execution-plan from planning)
+  - swarming (references executing skill in worker template, launches live workers)
 ```
