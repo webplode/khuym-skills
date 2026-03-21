@@ -1,6 +1,6 @@
 ---
 name: swarming
-description: Orchestrates parallel worker agents for feature execution. Use after the validating skill approves execution. Computes execution plan from live bead graph via bv --robot-plan, writes execution-plan.md for audit trail, spawns bounded worker subagents, monitors Agent Mail for bead completions/blockers/file conflicts, coordinates wave transitions, and hands off to reviewing when all beads are closed. The orchestrator TENDS — it never implements beads directly.
+description: Orchestrates parallel worker agents for feature execution. Use after the validating skill approves execution. Initializes the overseer/orchestrator context, spawns bounded worker subagents, monitors Agent Mail for completions/blockers/file conflicts, coordinates rescues and course corrections, and hands off to reviewing when all beads are closed. The orchestrator TENDS — it never implements beads directly.
 metadata:
   version: '1.0'
   role: orchestrator
@@ -14,39 +14,38 @@ metadata:
 
 ## Role Boundary — Read First
 
-You are the **ORCHESTRATOR**. You spawn workers, monitor coordination, handle escalations, and transition waves. You do NOT implement beads. If you find yourself writing code or editing source files, stop immediately — that is the executing skill's job.
+You are the **ORCHESTRATOR**. You launch workers, monitor coordination, handle escalations, and keep the swarm moving. You do NOT implement beads. If you find yourself editing source files, stop immediately — that is the executing skill's job.
 
-- **swarming** = spawns and tends workers (this skill)
-- **executing** = implements beads (loaded by each worker subagent)
+- **swarming** = launches and tends workers (this skill)
+- **executing** = each worker's self-routing implementation loop
 
-Teams report that the #1 swarm failure mode is an orchestrator that "helps" a struggling worker by implementing code directly. This destroys isolation guarantees and creates merge conflicts. Tend the swarm; do not become a worker.
+In Flywheel terms, this skill is the Khuym/Codex adaptation of the `ntm spawn` + human-overseer phase. The orchestrator launches the swarm, then tends it. Workers decide what to do next by using `bv --robot-priority` against the live bead graph.
 
 ## When to Use This Skill
 
 Invoke after the `validating` skill issues: _"Validation complete. All checks pass. Invoke swarming skill."_
 
 Prerequisites:
-- Beads are in `open` status (validated and approved)
+- Beads are in `open` status and approved for execution
 - EPIC_ID is known (from STATE.md or user input)
 - Agent Mail server is reachable
 
 ---
 
-## Phase 1: Compute Execution Plan
+## Phase 1: Confirm Swarm Readiness
 
-1. Get EPIC_ID: read `.khuym/STATE.md` (from planning handoff)
-   or ask user: "What is the epic bead ID for this feature?"
-2. Compute tracks: `bv --robot-plan 2>/dev/null` → extract TRACKS and CROSS_DEPS
-   from the live bead graph
-3. Check `bv --robot-triage --graph-root <EPIC_ID>` for current bead statuses
-4. Write `history/<feature>/execution-plan.md` — record computed tracks, file
-   scopes, wave assignments (for audit trail and handoff resumption)
+1. Get `EPIC_ID`: read `.khuym/STATE.md` or ask the user.
+2. Check live bead status:
+   ```bash
+   bv --robot-triage --graph-root <EPIC_ID>
+   ```
+3. Verify there is executable work:
+   - open beads exist
+   - dependencies are acyclic
+   - no unresolved validation blockers remain
+4. Update `.khuym/STATE.md` with current swarm intent and epic ID.
 
-**If resuming:** Check if `history/<feature>/execution-plan.md` already exists.
-If so, read it to understand prior wave progress, then re-verify with
-`bv --robot-triage` before continuing.
-
-**STATE.md update:** Write current swarm intent under `## Current Focus`.
+**Do not** compute runtime tracks, runtime waves, or any separate runtime planning artifact. In the corrected model, the bead graph itself is the execution source of truth.
 
 ---
 
@@ -57,7 +56,8 @@ ensure_project(project_key="<project-root-path>")
 register_agent(name="Orchestrator", role="swarm-coordinator", project_key="<project-root-path>")
 ```
 
-Create epic coordination thread:
+Create the epic coordination thread:
+
 ```
 create_thread(
   thread_id="<EPIC_ID>",
@@ -66,168 +66,156 @@ create_thread(
 )
 ```
 
-Post a spawn notification to the epic thread. Template: see `references/message-templates.md` → **Spawn Notification**.
+Post a swarm start notification to the epic thread. Template: see `references/message-templates.md` → **Spawn Notification**.
 
-Set up file reservation namespace: confirm that each track's file scope from execution-plan.md is non-overlapping. If two tracks claim the same file, resolve before spawning:
-- Same-wave conflict → move one bead to the next wave
-- Cross-wave conflict → earlier wave claims the file; later wave waits
-
----
-
-## Phase 3: Compute Waves
-
-Wave computation is the orchestrator's most critical function. Incorrect waves cause dependency violations that break builds mid-execution.
-
-**Algorithm:**
-1. For each bead in the epic, list its `dependencies` from the bead file
-2. Assign wave numbers using topological sort:
-   - Wave 1 = beads with zero unresolved dependencies
-   - Wave 2 = beads whose only dependencies are in Wave 1
-   - Wave N = beads whose dependencies are all in Waves 1..N-1
-3. If the dependency graph has cycles: STOP. Flag to user — this is a bead graph defect that should have been caught in `validating`. Do not attempt to execute a cyclic graph.
-
-**Output:** Wave map:
-```
-Wave 1: [bead-A1, bead-B1, bead-C1]  — no deps, run in parallel
-Wave 2: [bead-A2, bead-B2]           — depend on Wave 1 beads
-Wave 3: [bead-A3]                    — depends on Wave 2 beads
-```
-
-**User preference on session structure:** Execution can use multiple simultaneous sessions (one per track) or a single session per bead. The execution-plan.md specifies this via track assignments. Follow the plan's structure — do not re-architect session layout during swarming.
+The epic thread is the coordination surface for:
+- worker startup acknowledgments
+- completion reports
+- blocker alerts
+- file conflict requests
+- context handoffs
+- overseer broadcasts
 
 ---
 
-## Phase 4: Spawn Workers
+## Phase 3: Spawn Workers
 
-For each track assigned to the current wave, spawn one worker subagent:
+Spawn a pool of worker subagents in parallel:
 
 ```
 Subagent(
-  identity="Worker: <track-name>, Wave <N>",
+  identity="Worker: <agent-name>",
   context=<scoped worker context from references/worker-template.md>
 )
 ```
 
-`Subagent(...)` is the canonical spawn contract. Use whatever runtime-specific primitive in your environment creates a new worker subagent, but keep the behavior the same: bounded scope, orchestrator remains in control, and only the context needed for this worker by default.
+`Subagent(...)` is the canonical contract. In an actual runtime, call whatever worker-spawn primitive is available, but preserve the same behavior: the orchestrator stays in control, each worker gets bounded scope by default, and workers report back through Agent Mail plus the live bead graph.
 
-**All workers in the same wave spawn simultaneously (parallel).** Do not await one before spawning the next — the entire wave launches at once, then you enter Phase 5 monitoring.
+Provide each worker:
+- Agent Mail identity (project key, agent name, epic thread)
+- Feature name / epic ID
+- Instruction to load the `executing` skill immediately
+- Optional startup hint if there is an urgent ready bead, clearly labeled as a hint rather than an assignment
+- Scoped task-specific context by default; full parent-context inheritance only when explicitly needed
 
-Worker context to provide (template in `references/worker-template.md`):
-- Assigned beads for this track (IDs + titles)
-- File scope (paths this worker owns)
-- Epic thread ID for Agent Mail
-- Agent Mail identity (project key, suggested agent name)
-- Instruction to load the `executing` skill
-- Only the task-specific context this worker needs unless full parent-context inheritance is explicitly required
+Do **not** assign workers fixed tracks, fixed waves, or fixed bead lists as the normal case. Workers are expected to:
+1. register
+2. read project context
+3. call `bv --robot-priority`
+4. reserve files
+5. implement and report
+6. loop
 
-Mark spawned workers in STATE.md: `## Active Workers — Wave N`.
+Mark spawned workers in `.khuym/STATE.md` under `## Active Workers`.
 
 ---
 
-## Phase 5: Monitor + Tend
+## Phase 4: Monitor + Tend
 
-This is the "clockwork deity" phase. You designed the swarm; now you manage it. Check Agent Mail regularly on the epic thread:
+This is the "clockwork deity" phase. The swarm is live; now you manage it.
+
+Check Agent Mail regularly on the epic thread:
 
 ```
 list_messages(thread_id="<EPIC_ID>", unread_only=true)
 ```
 
+Use live graph checks for oversight, not assignment:
+
+```bash
+bv --robot-triage --graph-root <EPIC_ID>
+```
+
+### Worker Startup Acknowledgments
+
+When a worker posts an online message:
+1. Confirm it joined the correct epic thread
+2. Confirm it is loading `executing`
+3. Update `.khuym/STATE.md`
+
 ### Bead Completion Reports
-When a worker posts a completion report (see `references/message-templates.md` → **Completion Report**):
+
+When a worker posts a completion report:
 1. Verify the bead is actually closed: `br status <bead-id>`
-2. Update your internal wave completion tally
-3. Acknowledge receipt on the thread
-4. Update `.khuym/STATE.md`
+2. Acknowledge receipt on the thread
+3. Update `.khuym/STATE.md`
+4. Re-check the graph if needed to see what newly unblocked
 
 ### Blocker Alerts
-When a worker posts a blocker alert (`references/message-templates.md` → **Blocker Alert**):
-1. Assess severity: can you resolve with context from another track?
-   - **Yes:** Reply to the worker with the needed context on the epic thread
-   - **No (cross-track knowledge gap):** Broadcast to all workers asking for input
-   - **Unresolvable:** Escalate to user with full context. Do NOT let workers spin on a blocker — acknowledge within one poll cycle
-2. If a blocker pauses a worker: update STATE.md with blocker entry
+
+When a worker posts a blocker alert:
+1. Assess severity:
+   - **Resolvable with existing context:** reply on the thread
+   - **Needs another worker's status or release:** coordinate via thread
+   - **Needs human judgment:** escalate to user quickly
+2. Do not let workers spin silently on blockers
+3. Record blocker state in `.khuym/STATE.md`
 
 ### File Conflict Requests
-When a worker posts a file conflict request (`references/message-templates.md` → **File Conflict Request**):
-1. Identify which worker holds the reservation and which needs it
-2. Coordinate:
-   - If holder can release early: reply to holder requesting release, confirm to requester
-   - If release is not feasible: instruct requester to skip that file and create a follow-up bead
-3. Log conflict resolution in STATE.md
+
+When a worker requests a file another worker holds:
+1. Identify holder and requester
+2. Coordinate one of:
+   - holder releases at a safe checkpoint
+   - requester waits
+   - requester defers and creates a follow-up bead
+3. Log the resolution in `.khuym/STATE.md`
+
+### Overseer Broadcasts
+
+Use broadcast messages when the swarm needs a shared correction, for example:
+- "re-read AGENTS.md after compaction"
+- "do not touch file X until blocker Y is cleared"
+- "new user decision: D7 is locked, honor it"
 
 ### Context Checkpoint
-After each significant event (bead completion, blocker resolution, wave completion): estimate your own context budget.
+
+After each significant event, estimate your own context budget.
 
 **If context >65% used:**
 1. Write `.khuym/HANDOFF.json` with complete swarm state (see `references/message-templates.md` → **Handoff JSON template**)
-2. Broadcast pause notification to all workers on epic thread
-3. Report to user: "Orchestrator context at capacity. Wave N is [X/Y] complete. Write HANDOFF.json and suggest resuming in a fresh session."
-4. Do NOT abandon the swarm without writing HANDOFF.json — workers may still be running
+2. Broadcast a pause notification on the epic thread
+3. Report to user that the orchestrator paused safely and how to resume
+4. Do NOT abandon the swarm without writing `HANDOFF.json`
 
 ---
 
-## Phase 6: Wave Transition
+## Phase 5: Swarm Complete
 
-When all workers in the current wave report completion:
+When no beads remain `in_progress` and the graph shows no remaining executable work:
 
-1. **Post-wave verification:**
-   - Run: `<build-command>` — does the project still compile?
-   - Run: `<test-command>` — do all prior tests still pass?
-   - If verification fails:
-     a. Diagnose which bead broke the build (check git log — each bead is a commit)
-     b. Create fix beads: `br create "Fix: <description>" --depends-on <broken-bead-id>`
-     c. Run a fix wave before proceeding to the next planned wave
-     d. If fix wave also fails: STOP and escalate to user
-
-2. **Broadcast wave transition:**
-   - Post wave transition broadcast to epic thread (`references/message-templates.md` → **Wave Transition Broadcast**)
-
-3. **Spawn next wave:**
-   - Repeat Phase 4 for Wave N+1
-   - Update STATE.md: increment active wave number
-
-4. **Repeat until all waves complete.**
-
----
-
-## Phase 7: Swarm Complete
-
-When all waves have finished and no beads remain in-progress:
-
-1. **Final bead verification:**
-   ```
+1. Run final bead verification:
+   ```bash
    bv --robot-triage --graph-root <EPIC_ID>
    ```
-   Inspect output: any beads still `open` or `in_progress`?
-   
-2. **If orphan beads exist:**
-   - Report which beads remain and why (worker never picked them up, deprioritized, etc.)
-   - Ask user: close as won't-do, assign to a cleanup wave, or continue in next session?
-
-3. **If all beads are closed:**
-   - Final build + test run to confirm clean state
-   - Update `.khuym/STATE.md`:
+2. If orphaned or blocked beads remain:
+   - report which beads remain and why
+   - ask the user whether to defer, create cleanup beads, or continue later
+3. If all beads are closed:
+   - run final build/test commands appropriate to the project
+   - update `.khuym/STATE.md`:
      ```
      Active skill: swarming → COMPLETE
-     Swarm: <EPIC_ID> — all N beads closed across M waves
+     Swarm: <EPIC_ID> — all beads closed
      ```
-   - Clear `## Active Workers` section from STATE.md
+   - clear `## Active Workers` from `.khuym/STATE.md`
 
-4. **Handoff message:**
-   > "Swarm execution complete. [N] beads implemented across [M] waves. Invoke reviewing skill."
+4. Handoff message:
+   > "Swarm execution complete. All beads closed. Invoke reviewing skill."
 
 ---
 
 ## Red Flags
 
-These indicate something is wrong. Stop and diagnose before continuing:
+Stop and diagnose before continuing if you see:
 
-- **Worker implements multiple beads at once** — each worker should take one bead at a time from its assigned track
-- **Orchestrator edits source files** — you are the orchestrator; this violates role boundary
-- **Wave 2 spawns before Wave 1 is fully complete** — dependency violation in progress
-- **No Agent Mail activity for >10 poll cycles** — workers may be stuck or context-exhausted; check their status
-- **Build fails after wave transition** — do not spawn the next wave on a broken build
-- **Cyclic dependency detected in wave compute** — do not work around it; the bead graph has a defect
+- **Worker implements multiple beads at once** — self-routing does not mean parallelizing within one worker
+- **Orchestrator edits source files** — role violation
+- **Workers are idle but ready beads exist** — check mail, reservations, or startup drift
+- **No Agent Mail activity for >10 poll cycles** — workers may be stuck or context-exhausted
+- **The same file conflict repeats** — bead decomposition may be too coarse; escalate
+- **Workers stop using `bv --robot-priority` and start freelancing** — re-broadcast the execution contract
+- **Build/test failures accumulate without intervention** — create fix beads or stop and escalate
 
 ---
 
@@ -237,5 +225,5 @@ Load when needed:
 
 | File | Load When |
 |---|---|
-| `references/worker-template.md` | Spawning any worker (Phase 4) |
+| `references/worker-template.md` | Spawning any worker (Phase 3) |
 | `references/message-templates.md` | Posting or parsing Agent Mail messages |
