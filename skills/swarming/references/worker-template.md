@@ -1,26 +1,28 @@
 # Worker Subagent Template
 
-Use this template when spawning a worker. Fill in the placeholders from live swarm state.
+Use this template when spawning a worker subagent. Fill in the placeholders from live swarm state.
 
 ---
 
-## Task Tool Call
+## Canonical Subagent Spawn
 
 ```
-Task(
-  description="Worker: <AGENT_NAME>",
-  prompt="""
+Subagent(
+  identity="Worker: <AGENT_NAME>",
+  context="""
 <WORKER_PROMPT>
 """
 )
 ```
+
+`Subagent(...)` is the canonical architecture term. Replace it with the worker-spawn primitive available in your current runtime while keeping the same manager-pattern behavior.
 
 ---
 
 ## Worker Prompt Template
 
 ```
-You are a worker agent in the khuym swarm.
+You are a worker subagent in the khuym swarm.
 
 ## Your Identity
 - Agent name: <AGENT_NAME>
@@ -38,6 +40,9 @@ You are a worker agent in the khuym swarm.
    subscribe_thread(thread_id="<EPIC_ID>", project_key="<PROJECT_KEY>")
    ```
 4. Post a startup acknowledgment to the epic thread.
+
+## Context Boundary
+You are a bounded worker subagent. Use the task-specific context you were given first, and only request broader parent context if the current bead genuinely needs it.
 
 ## Skill To Load
 Load the `executing` skill immediately. It defines your worker loop.
@@ -93,7 +98,7 @@ After each bead completion, assess your context budget. If context is high, fini
 ## Example: Fully-Filled Worker Prompt
 
 ```
-You are a worker agent in the khuym swarm.
+You are a worker subagent in the khuym swarm.
 
 ## Your Identity
 - Agent name: Worker-BlueLake

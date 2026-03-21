@@ -1,6 +1,6 @@
 ---
 name: swarming
-description: Orchestrates parallel worker agents for feature execution. Use after the validating skill approves execution. Initializes the overseer/orchestrator context, spawns executing-skill workers, monitors Agent Mail for completions/blockers/file conflicts, coordinates rescues and course corrections, and hands off to reviewing when all beads are closed. The orchestrator TENDS — it never implements beads directly.
+description: Orchestrates parallel worker agents for feature execution. Use after the validating skill approves execution. Initializes the overseer/orchestrator context, spawns bounded worker subagents, monitors Agent Mail for completions/blockers/file conflicts, coordinates rescues and course corrections, and hands off to reviewing when all beads are closed. The orchestrator TENDS — it never implements beads directly.
 metadata:
   version: '1.0'
   role: orchestrator
@@ -83,17 +83,20 @@ The epic thread is the coordination surface for:
 Spawn a pool of worker subagents in parallel:
 
 ```
-Task(
-  description="Worker: <agent-name>",
-  prompt=<see references/worker-template.md>
+Subagent(
+  identity="Worker: <agent-name>",
+  context=<scoped worker context from references/worker-template.md>
 )
 ```
+
+`Subagent(...)` is the canonical contract. In an actual runtime, call whatever worker-spawn primitive is available, but preserve the same behavior: the orchestrator stays in control, each worker gets bounded scope by default, and workers report back through Agent Mail plus the live bead graph.
 
 Provide each worker:
 - Agent Mail identity (project key, agent name, epic thread)
 - Feature name / epic ID
 - Instruction to load the `executing` skill immediately
 - Optional startup hint if there is an urgent ready bead, clearly labeled as a hint rather than an assignment
+- Scoped task-specific context by default; full parent-context inheritance only when explicitly needed
 
 Do **not** assign workers fixed tracks, fixed waves, or fixed bead lists as the normal case. Workers are expected to:
 1. register
