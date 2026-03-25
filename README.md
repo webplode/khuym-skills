@@ -37,7 +37,7 @@ The main differentiator is that execution is intentionally gated: the system doe
 
 ## Relationship to Architecture
 
-This README explains the vision and practical entry points. For detailed workflow boundaries and canonical contracts, use [`docs/architecture/ARCHITECTURE.md`](/Users/themrb/Documents/personal/skills/docs/architecture/ARCHITECTURE.md).
+This README explains the vision and practical entry points. For detailed workflow boundaries and canonical contracts, use [`docs/architecture/ARCHITECTURE.md`](/Users/themrb/Documents/personal/skills/docs/architecture/ARCHITECTURE.md). For current implementation alignment and known divergences, see [`docs/architecture/IMPLEMENTATION_ALIGNMENT_REVIEW.md`](/Users/themrb/Documents/personal/skills/docs/architecture/IMPLEMENTATION_ALIGNMENT_REVIEW.md).
 
 ## Repository Layout
 
@@ -111,7 +111,7 @@ The Khuym ecosystem is the primary story in this repository: a coordinated chain
 | `khuym:validating` | Plan verification (8 dims) + spikes + bead polishing — **THE GATE** |
 | `khuym:swarming` | Launch + tend parallel worker agents via Agent Mail |
 | `khuym:executing` | Per-agent worker loop: priority → reserve → implement → close |
-| `khuym:reviewing` | 5 review agents + 3-level verification + UAT |
+| `khuym:reviewing` | Specialist review passes + 3-level verification + UAT |
 | `khuym:compounding` | Capture learnings → history/learnings/ |
 | `khuym:writing-khuym-skills` | TDD-for-skills meta-skill |
 | `khuym:debugging` | Systematic debugging for blocked workers (support) |
