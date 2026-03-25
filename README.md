@@ -28,41 +28,26 @@ The main differentiator is that execution is intentionally gated: the system doe
 - **GATE 2** (after validating): "Beads verified. Approve execution?"
 - **GATE 3** (after reviewing): "P1 findings. Fix before merge?"
 
-## Skill Families
+## Compact Workflow Example
 
-### Khuym Ecosystem (`khuym/`)
+1. `khuym:exploring` captures the decisions and constraints for a feature.
+2. `khuym:planning` and `khuym:validating` turn those decisions into verified executable beads.
+3. `khuym:swarming` and `khuym:executing` implement the work in parallel with reservations and bead status updates.
+4. `khuym:reviewing` enforces quality gates, then `khuym:compounding` captures reusable learnings.
 
-The Khuym ecosystem is the primary story in this repository: a coordinated chain built around beads (`br`), bead viewer (`bv`), and Agent Mail.
+## Relationship to Architecture
 
-| Skill | Purpose |
-|-------|---------|
-| `khuym:using-khuym` | Bootstrap meta-skill — routing, go mode, state resume |
-| `khuym:exploring` | Socratic dialogue → locked decisions in CONTEXT.md |
-| `khuym:planning` | Research + synthesis → approach.md + beads |
-| `khuym:validating` | Plan verification (8 dims) + spikes + bead polishing — **THE GATE** |
-| `khuym:swarming` | Launch + tend parallel worker agents via Agent Mail |
-| `khuym:executing` | Per-agent worker loop: priority → reserve → implement → close |
-| `khuym:reviewing` | 5 review agents + 3-level verification + UAT |
-| `khuym:compounding` | Capture learnings → history/learnings/ |
-| `khuym:writing-khuym-skills` | TDD-for-skills meta-skill |
-| `khuym:debugging` | Systematic debugging for blocked workers (support) |
-| `khuym:gkg` | Codebase intelligence via gkg tool (support) |
+This README explains the vision and practical entry points. For detailed workflow boundaries and canonical contracts, use [`docs/architecture/ARCHITECTURE.md`](/Users/themrb/Documents/personal/skills/docs/architecture/ARCHITECTURE.md).
 
-**Go Mode Gates:**
-- **GATE 1** (after exploring): "Approve decisions/CONTEXT.md?"
-- **GATE 2** (after validating): "Beads verified. Approve execution?"
-- **GATE 3** (after reviewing): "P1 findings. Fix before merge?"
+## Repository Layout
 
-See `AGENTS.md` for the full operating manual.
-
-### Standalone Skills (`standalone/`)
-
-Independent utility skills not part of the khuym chain.
-
-| Skill | Description |
-|-------|-------------|
-| `book-sft-pipeline` | Convert books into SFT datasets for training style-transfer models |
-| `prompt-leverage` | Upgrade raw prompts into stronger execution-ready prompts |
+```text
+khuym/                    # Khuym ecosystem skills (primary workflow)
+standalone/               # Independent utility skills (secondary)
+docs/architecture/        # Canonical architecture and alignment docs
+.claude-plugin/           # Plugin marketplace and plugin manifest
+scripts/sync-skills.sh    # Raw local skill deployment helper
+```
 
 ## Skill Format
 
@@ -111,6 +96,35 @@ If you want the raw skill directories linked into `~/.claude/skills/` for local 
 bash scripts/sync-skills.sh
 bash scripts/sync-skills.sh --dry-run
 ```
+
+## Skill Catalog
+
+### Khuym Ecosystem (`khuym/`)
+
+The Khuym ecosystem is the primary story in this repository: a coordinated chain built around beads (`br`), bead viewer (`bv`), and Agent Mail.
+
+| Skill | Purpose |
+|-------|---------|
+| `khuym:using-khuym` | Bootstrap meta-skill — routing, go mode, state resume |
+| `khuym:exploring` | Socratic dialogue → locked decisions in CONTEXT.md |
+| `khuym:planning` | Research + synthesis → approach.md + beads |
+| `khuym:validating` | Plan verification (8 dims) + spikes + bead polishing — **THE GATE** |
+| `khuym:swarming` | Launch + tend parallel worker agents via Agent Mail |
+| `khuym:executing` | Per-agent worker loop: priority → reserve → implement → close |
+| `khuym:reviewing` | 5 review agents + 3-level verification + UAT |
+| `khuym:compounding` | Capture learnings → history/learnings/ |
+| `khuym:writing-khuym-skills` | TDD-for-skills meta-skill |
+| `khuym:debugging` | Systematic debugging for blocked workers (support) |
+| `khuym:gkg` | Codebase intelligence via gkg tool (support) |
+
+### Standalone Skills (`standalone/`)
+
+Standalone skills remain available, but they are intentionally secondary to the Khuym chain in this repo's top-level narrative.
+
+| Skill | Description |
+|-------|-------------|
+| `book-sft-pipeline` | Convert books into SFT datasets for training style-transfer models |
+| `prompt-leverage` | Upgrade raw prompts into stronger execution-ready prompts |
 
 ## Requirements
 
