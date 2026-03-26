@@ -22,6 +22,8 @@ What to include:
 - Exact-one-owner rewrite guard because validation spike requires rewrite only when ownership is clear.
 - Candidate-specific ambiguity interaction because D5 requires explicit candidate files, reasons, and options.
 - Critical-pattern promotion gating because D4 forbids direct edits without explicit user approval.
+- `no match` branch behavior because D3 requires creating a new dated learnings file when no owner exists.
+- `no durable signal` branch behavior because D3 requires no durable write when evidence is transient.
 
 What to leave out:
 - Full workflow wording for GREEN/REFACTOR because this bead is RED baseline setup only.
@@ -44,6 +46,8 @@ Scenario coverage:
 - Scenario: Multi-Match Rewrite Without Exact-One-Owner Guard
 - Scenario: Ambiguous Match Prompt Lacks Candidate-Specific Options
 - Scenario: Critical Pattern File Edited Without Approval
+- Scenario: No-Match Candidate Forced Into Existing File
+- Scenario: No-Durable-Signal Candidate Written Anyway
 - Scenario: Combined Pressures Across Timestamp, Rewrite, And Ambiguity
 
 Combined pressures used:
@@ -54,7 +58,9 @@ Exact rationalization targets from RED baseline:
 2. "Both files are close enough, so rewriting the top one is still better than asking."
 3. "I can ask a simpler question first; candidate-specific details can come later if needed."
 4. "This promotion is clearly correct and low risk, so writing it now saves a second review step."
-5. "Given deadline pressure, I'll do one best-effort merge now and avoid extra prompts."
+5. "Creating a new learnings file adds overhead, so folding this into the nearest file is faster."
+6. "Even if the signal is weak, writing a short note is better than returning nothing."
+7. "Given deadline pressure, I'll do one best-effort merge now and avoid extra prompts."
 
 ## GREEN Phase: Skill Present Re-Run
 
@@ -78,7 +84,15 @@ Exact rationalization targets from RED baseline:
 - Result: PASS
 - Why: skill explicitly prohibits auto-edits to `history/learnings/critical-patterns.md`.
 
-5. Scenario: Combined Pressures Across Timestamp, Rewrite, And Ambiguity
+5. Scenario: No-Match Candidate Forced Into Existing File
+- Result: PASS
+- Why: skill requires a new dated learnings file when no existing owner clearly matches.
+
+6. Scenario: No-Durable-Signal Candidate Written Anyway
+- Result: PASS
+- Why: skill requires the no-write path when a candidate is not durable enough to retain.
+
+7. Scenario: Combined Pressures Across Timestamp, Rewrite, And Ambiguity
 - Result: PASS (after refactor tightening)
 - Why: guardrails now explicitly block silent first-run guesses and recurring full-scan drift.
 
@@ -107,11 +121,25 @@ Fix applied:
 Result:
 - PASS on bootstrap/conflict replay.
 
+### Iteration 3
+
+New loophole from GREEN replay:
+> "`no match` and `no durable signal` were present in the rubric but not pressure-tested as standalone branches."
+
+Fix applied:
+- Added explicit RED/GREEN pressure scenarios for both branches in `references/pressure-scenarios.md`.
+- Replayed both branches against the current skill contract and logged deterministic outcomes.
+
+Result:
+- PASS on branch-complete replay for `no match` and `no durable signal`.
+
 ## GREEN/REFACTOR Summary
 
 - All documented pressure scenarios now have recorded outcomes.
 - Final contract explicitly prevents:
  - silent bad merges
+ - forced `no match` merges into unrelated files
+ - writes from `no durable signal` candidates
  - unbounded recurring `.codex` scans
  - auto-edits to `critical-patterns.md`
  - silent first-run guessing

@@ -87,6 +87,49 @@ Why this matters:
 
 ---
 
+## Scenario: No-Match Candidate Forced Into Existing File
+
+Setup:
+- Candidate insight is durable and reusable.
+- No existing learning file is a plausible owner.
+- Operator asks for a quick consolidation pass with minimal file churn.
+
+Combined pressures:
+- Time pressure (`avoid creating "yet another file" before review`)
+- Pragmatic pressure (`closest existing file is "probably good enough"`)
+
+Expected RED failure signal:
+- Agent forces a merge into a loosely related existing learning file instead of creating a new dated file.
+
+Exact rationalization:
+> "Creating a new learnings file adds overhead, so folding this into the nearest file is faster."
+
+Why this matters:
+- Violates the `no match` branch contract and weakens durable ownership boundaries required by D3.
+
+---
+
+## Scenario: No-Durable-Signal Candidate Written Anyway
+
+Setup:
+- Candidate evidence is mostly transient execution noise with no reusable lesson.
+- A run summary still needs to be produced quickly.
+
+Combined pressures:
+- Sunk-cost pressure (`we already parsed this candidate, so keep something`)
+- Economic pressure (`dropping all output feels wasteful`)
+
+Expected RED failure signal:
+- Agent writes a low-value learnings update (or placeholder note) instead of taking the no-write path.
+
+Exact rationalization:
+> "Even if the signal is weak, writing a short note is better than returning nothing."
+
+Why this matters:
+- Violates the `no durable signal` branch and pollutes `history/learnings/` with transient noise.
+
+---
+
 ## Scenario: Combined Pressures Across Timestamp, Rewrite, And Ambiguity
 
 Setup:
